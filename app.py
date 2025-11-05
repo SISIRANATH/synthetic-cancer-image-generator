@@ -9,13 +9,19 @@ st.set_page_config(page_title="🧫 Synthetic Cancer Image Generator", page_icon
 @st.cache_resource
 def load_model():
     model_id = "rupeshs/LCM-runwayml-stable-diffusion-v1-5"
+    device = "cpu"   # ✅ force CPU (no GPU needed)
+
     pipe = StableDiffusionPipeline.from_pretrained(
         model_id,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+        torch_dtype=torch.float32,
+        safety_checker=None,
+        requires_safety_checker=False
     )
-    pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
-    pipe = pipe.to("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Enable lightweight settings
+    pipe = pipe.to(device)
     pipe.enable_attention_slicing()
+    pipe.enable_vae_tiling()
     return pipe
 
 # Title + description
@@ -42,7 +48,14 @@ if generate:
     pipe = load_model()
     generator = torch.Generator(device="cuda" if torch.cuda.is_available() else "cpu").manual_seed(int(seed) if seed >= 0 else torch.seed())
 
-    image = pipe(prompt=prompt, guidance_scale=guidance, num_inference_steps=steps, generator=generator).images[0]
+    image = pipe(
+        prompt=prompt,
+        guidance_scale=guidance,
+        num_inference_steps=min(steps, 20),
+        width=256, height=256,       # smaller image size
+        generator=generator
+    ).images[0]
+
 
     elapsed = time.time() - start
     st.image(image, caption=f"Generated image in {elapsed:.2f}s", use_column_width=True)
