@@ -1,49 +1,26 @@
-import os
 import streamlit as st
 from huggingface_hub import InferenceClient
 from PIL import Image
 import io
 
-# -------------------------------------------------------------------
-# Streamlit Page Settings
-# -------------------------------------------------------------------
-st.set_page_config(
-    page_title="🧫 Cloud Cancer Image Generator",
-    page_icon="🧬",
-    layout="wide"
-)
+st.set_page_config(page_title="🧫 Cloud Cancer Image Generator", page_icon="🧬", layout="wide")
 
-# -------------------------------------------------------------------
-# Hugging Face API Key
-# -------------------------------------------------------------------
+# 🔐 Load Hugging Face API Key from Streamlit Secrets
+HF_API_KEY = st.secrets["HF_TOKEN"]
 
-# -------------------------------------------------------------------
-# Initialize Inference Client
-# -------------------------------------------------------------------
+# Initialize HF client
 client = InferenceClient(
     provider="hf-inference",
-    api_key=os.environ["HF_TOKEN"],
+    api_key=HF_API_KEY
 )
 
-MODEL_ID = "stabilityai/stable-diffusion-xl-base-1.0"     # you can change this
+MODEL_NAME = "stabilityai/stable-diffusion-xl-base-1.0"
 
-# -------------------------------------------------------------------
-# Function to Generate Image
-# -------------------------------------------------------------------
-def generate_image(prompt: str) -> Image.Image:
-    image = client.text_to_image(
-        prompt,
-        model=MODEL_ID,
-    )
-    return image
-
-# -------------------------------------------------------------------
-# Streamlit UI
-# -------------------------------------------------------------------
-st.title("🧫 Cloud-Based Synthetic Cancer Cell Image Generator (HF InferenceClient)")
+# UI
+st.title("🧫 Cloud-Based Synthetic Cancer Cell Image Generator")
 st.markdown("""
-This version uses the **Hugging Face InferenceClient** for stable & fast cloud image generation.  
-No local model needed — fully cloud powered!
+This version uses **Hugging Face Inference API** (Cloud).  
+No local model is loaded — everything runs on Hugging Face servers.
 """)
 
 prompt = st.text_area(
@@ -52,26 +29,27 @@ prompt = st.text_area(
 )
 
 if st.button("🚀 Generate Image"):
-    with st.spinner("Generating image ... please wait ⏳"):
+    with st.spinner("Generating image... please wait ⏳"):
         try:
-            image = generate_image(prompt)
+            image = client.text_to_image(
+                prompt,
+                model=MODEL_NAME
+            )
+            buffer = io.BytesIO()
+            image.save(buffer, format="PNG")
+            image_bytes = buffer.getvalue()
 
-            # Show image
             st.image(image, caption="Generated Image", use_column_width=True)
-
-            # Convert to bytes for download
-            img_bytes = io.BytesIO()
-            image.save(img_bytes, format="PNG")
-            img_bytes = img_bytes.getvalue()
 
             st.download_button(
                 "💾 Download Image",
-                data=img_bytes,
+                data=image_bytes,
                 file_name="synthetic_cancer.png",
                 mime="image/png"
             )
+
         except Exception as e:
             st.error(f"Error: {e}")
 
 st.markdown("---")
-st.markdown("⚙️ Powered by HuggingFace InferenceClient (Cloud)")
+st.markdown("⚙️ Powered by Hugging Face Inference API (Cloud)")
